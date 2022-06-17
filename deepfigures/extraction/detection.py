@@ -113,20 +113,39 @@ def extract_figures_json(
     pages = convert_from_path(pdf_path, 100)
     print('[INFO] Page lengh: '+ str(len(pages)))
     data = pdf_detection_result.to_dict()
+    real_directory = output_directory + '/images'
+    if not os.path.exists(real_directory):
+        os.makedirs(real_directory)
     i = 1
+    content = ""
     for oneImage in data["figures"]:
         caption = oneImage['caption_text']
         print('[INFO] ' + caption)
         region = oneImage['figure_boundary']
         pageOrder = oneImage['page']
         temp_path = os.path.join(output_directory, str(i) + '_org.jpg')
-        real_path = os.path.join(output_directory, str(i) + '.jpg')
+        real_path = os.path.join(real_directory, str(i) + '.jpg')
+        
         pages[pageOrder].save(temp_path, 'JPEG')
         original = Image.open(temp_path)
         original.crop((region['x1'], region['y1'], region['x2'], region['y2'])).save(real_path)
         os.remove(temp_path)
+        
+        # create html content
+        img_path = './images/' + str(i) + '.jpg'
+        content = content + '<div class="col-md-4"><img src="'+ img_path +'" /><h6 class="mt-2">' + oneImage['caption_text'] + '</h6></div>'
+        
         i = i + 1
     
+    # write POC html
+    with open('map.html', 'r') as f:
+        html_string = f.read()
+        html_string = html_string.replace('{{PDF_FILE_NAME}}', os.path.basename(pdf_path)).replace('{{HTML_CONTENT}}', content)
+        
+        file = open(os.path.join(output_directory, 'index.html'), "w")
+        file.write(html_string)
+        file.close()
+
     file_util.write_json_atomic(
         output_path,
         pdf_detection_result.to_dict(),
